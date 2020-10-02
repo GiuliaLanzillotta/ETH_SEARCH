@@ -1,2 +1,2 @@
-# ETH_SEARCH
-The coolest ML powered search engine for a research collection
+# ETH SEARCH
+About to be the coolest ML-powered search engine for a research collection
