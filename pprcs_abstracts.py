@@ -11,6 +11,8 @@ import random
 import pickle
 
 import nltk
+nltk.download('stopwords')
+nltk.download('wordnet')
 from nltk import word_tokenize, RegexpTokenizer,PunktSentenceTokenizer, sent_tokenize
 from nltk.stem import PorterStemmer
 from nltk.stem import WordNetLemmatizer
@@ -20,8 +22,6 @@ import gensim
 import gensim.corpora as corpora
 from gensim.utils import simple_preprocess
 from gensim.models import CoherenceModel
-
-import tomotopy as tp
 
 
 ## -------------------------------------
@@ -74,7 +74,6 @@ abs_list = list(abstracts['abstract'])
 ## -------------------------------------
 ## Preprocessing 
 ## -------------------------------------
-            
 '''Tokenisation'''
 print("Tokenising the text ...")
 t1 = time.time()
