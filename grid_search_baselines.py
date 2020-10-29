@@ -304,7 +304,7 @@ def PA_search(train_docs, test_docs):
 
     for k2 in k2s:
         startk2 = time.time()
-        for k1 in [int(k2/5), int(k2/10), int(k2/20)]:
+        for k1 in [k2/5, k2/10, k2/20]:
             startk1 = time.time()
             for alpha in [1/k1, 0.1/k1, 0.01/k1]:  
                 
