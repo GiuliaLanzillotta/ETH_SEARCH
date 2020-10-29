@@ -99,7 +99,7 @@ def compute_test_pp(ll, docs):
         pp = exp(-ll/ct)
 
     """
-    ct = sum([len(docs) for doc in docs])
+    ct = sum([len(doc) for doc in docs])
     pp = np.exp(-1*ll/ct)
     return pp
 
