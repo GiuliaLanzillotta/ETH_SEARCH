@@ -43,12 +43,13 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-I","--input",help="Insert the input file name")
 parser.add_argument("-L","--location",help="Insert the working directory")
+parser.add_argument("-O","--output",help="Insert the output file name")
 parser.add_argument("-T","--type",help="Insert the type of model to grid search over. Supported values for now are: LDA, CTM, PA. Default is LDA.")
 args  = parser.parse_args()
 
 if not args.type: model_type="LDA"
 else: model_type = args.type
-if args.type not in ["LDA","CTM","PA"]: 
+if model_type not in ["LDA","CTM","PA"]: 
     print("Wrong usage. See help command for more info.")
     exit(1)
 
@@ -158,7 +159,7 @@ def LDA_search(train_docs, test_docs):
     # THE GRID
     ks = [50, 100, 150, 200, 300, 350, 450]
 
-    pps = [] # perplexities 
+    grid_results = pd.DataFrame(columns=["K","alpha","eta","perplexity"])
 
     w = get_num_tokens(train_docs)
 
@@ -166,8 +167,8 @@ def LDA_search(train_docs, test_docs):
 
     for k in ks:
         startk = time.time()
-        for alpha in [1 / k, 10 / k, 0.1 / k, None]:
-            for eta in [1 / w, 10 / w, 0.1 / w, None]:
+        for alpha in [1 / k, 10 / k, 0.1 / k]:
+            for eta in [1 / w, 10 / w, 0.1 / w]:
 
                 print(" ------------------------------------------- ")
                 print("| K = " + str(k) + "|\t alpha = " + str(alpha) + "\t| eta=" + str(eta))
@@ -179,11 +180,11 @@ def LDA_search(train_docs, test_docs):
                                     train_updates=TRAIN_UPDATES,
                                     train_iter=TRAIN_ITERS)
 
-                # LL
                 ll = get_test_LL(test_docs, model)
-                ## PP
                 pp = compute_test_pp(ll, test_docs)
-                pps += [pp]
+                grid_results = grid_results.append({"K":k, "alpha":alpha,
+                                                    "eta":eta,"perplexity":pp}, ignore_index=True)
+
                 print("Test perplexity = " + str(pp))
             
                 
@@ -193,6 +194,8 @@ def LDA_search(train_docs, test_docs):
 
     end = time.time()
     print("Time elapsed: " + str(round(end - start, 1)) + " s")
+
+    return grid_results
 
 
 
@@ -227,15 +230,15 @@ def CTM_search(train_docs, test_docs):
     """ Wrapper function for CTM grid search """
     print("Starting CTM grid search ...")
 
-    # perplexities
-    pps = []
-
     w = get_num_tokens(train_docs)
 
     # The GRID
     ks = [50, 100, 150, 200, 300, 350, 450]
-    etas = [1/w, 10/w, 0.1/w, None]
+    etas = [1/w, 10/w, 0.1/w]
     
+
+    grid_results = pd.DataFrame(columns=["K","eta","perplexity"])
+
     start = time.time()
 
     for k in ks:
@@ -251,7 +254,8 @@ def CTM_search(train_docs, test_docs):
 
             ll = get_test_LL(test_docs, model)
             pp = compute_test_pp(ll, test_docs)
-            pps += [pp]
+            grid_results = grid_results.append({"K":k, "eta":eta,"perplexity":pp}, 
+                                                ignore_index=True)
             print("Test perplexity = "+str(pp))
 
         endk = time.time()
@@ -259,6 +263,8 @@ def CTM_search(train_docs, test_docs):
 
     end = time.time()
     print("Time elapsed: " + str(round(end - start, 1)) + " s")
+    
+    return grid_results
 
 ## -------------------------------------
 ## Pachinko grid search
@@ -295,10 +301,9 @@ def PA_search(train_docs, test_docs):
 
     # The GRID
     k2s = [50, 100, 150, 200, 300, 350, 450]
-    etas = [1/w, 10/w, 0.1/w, None]
+    etas = [1/w, 10/w, 0.1/w]
 
-    # perplexities
-    pps = []
+    grid_results = pd.DataFrame(columns=["K1","K2","alpha","eta","perplexity"])
 
     start = time.time()
 
@@ -321,7 +326,9 @@ def PA_search(train_docs, test_docs):
     
                     ll = get_test_LL(test_docs, model)
                     pp = compute_test_pp(ll, test_docs)
-                    pps += [pp]
+                    grid_results = grid_results.append({"K1":k1,"K2":k2, "alpha":alpha,
+                                                        "eta":eta,"perplexity":pp}, ignore_index=True)
+
                     print("Test perplexity = "+str(pp))
 
             endk1 = time.time()
@@ -332,10 +339,11 @@ def PA_search(train_docs, test_docs):
 
     end = time.time()
     print("Time elapsed: " + str(round(end - start, 1)) + " s")
+    return grid_results
 
 
 
-# finally running the grid search
+# finally running the grid search and saving the output
 
 grid_search_fun = {
     "LDA": LDA_search,
@@ -343,4 +351,17 @@ grid_search_fun = {
     "PA": PA_search
 }
 
-grid_search_fun[model_type](train_docs, test_docs)
+grid_results = grid_search_fun[model_type](train_docs, test_docs)
+
+
+## -------------------------------------
+## Saving output 
+## -------------------------------------
+if args.output: output_file = args.output
+else: output_file = "grid_search_"+model_type+".csv"
+
+output_path = os.path.join(location,output_file)
+print("Saving the grid search result at "+output_file+" ...")
+
+grid_results.to_csv(output_path, index=False)
+print("Saving successful, exiting...")
