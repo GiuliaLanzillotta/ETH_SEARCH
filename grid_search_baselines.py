@@ -246,11 +246,20 @@ def CTM_search(train_docs, test_docs):
         for eta in etas:
             print(" ------------------------------------------- ")
             print("| K = " + str(k) + "\t| eta=" + str(eta))
-            model= train_CTM(train_docs, k,
+            try:
+                model= train_CTM(train_docs, k,
                                 eta=eta, 
                                 model_burn_in=MODEL_BURN_IN,
                                 train_updates = TRAIN_UPDATES, 
                                 train_iter = TRAIN_ITERS)
+            except Exception as e:
+                print("The following error occurred:")
+                print(e)
+                print("The grid search will skip the current values.")
+                grid_results = grid_results.append({"K":k, "eta":eta,"perplexity":np.nan}, 
+                                                ignore_index=True)
+                continue
+            
 
             ll = get_test_LL(test_docs, model)
             pp = compute_test_pp(ll, test_docs)
