@@ -309,7 +309,7 @@ def PA_search(train_docs, test_docs):
     w = get_num_tokens(train_docs)
 
     # The GRID
-    k2s = [50, 100, 150, 200, 300, 350, 450]
+    k2s = [50, 150, 200, 300]
     etas = [1/w, 10/w, 0.1/w]
 
     grid_results = pd.DataFrame(columns=["K1","K2","alpha","eta","perplexity"])
