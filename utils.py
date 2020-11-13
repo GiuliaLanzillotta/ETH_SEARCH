@@ -73,19 +73,16 @@ def get_topic_coherence(beta, data, vocab):
     TC = np.mean(TC) / counter
     print('Topic coherence is: {}'.format(TC))
 
-def nearest_neighbors(word, embeddings, vocab):
+def nearest_neighbors(q, embeddings, vocab):
+    query = q.data.cpu().numpy()
     vectors = embeddings.data.cpu().numpy() 
-    index = vocab.index(word)
-    print('vectors: ', vectors.shape)
-    query = vectors[index]
-    print('query: ', query.shape)
-    ranks = vectors.dot(query).squeeze()
+    ranks = vectors.dot(query.T).squeeze()
     denom = query.T.dot(query).squeeze()
-    denom = denom * np.sum(vectors**2, 1)
+    denom = denom * np.sum((vectors.T)**2, 0)
     denom = np.sqrt(denom)
     ranks = ranks / denom
     mostSimilar = []
     [mostSimilar.append(idx) for idx in ranks.argsort()[::-1]]
-    nearest_neighbors = mostSimilar[:20]
-    nearest_neighbors = [vocab[comp] for comp in nearest_neighbors]
-    return nearest_neighbors
+    nns = mostSimilar[:10]
+    nns = [vocab[comp] for comp in nns]
+    return nns
