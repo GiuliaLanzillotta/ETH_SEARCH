@@ -1,6 +1,7 @@
 """ Main processing module for ETM model """
 #Loading Libraries
-from __future__ import print_function
+import warnings
+warnings.filterwarnings("ignore")
 import time 
 import argparse
 import pickle 
@@ -10,7 +11,6 @@ import math
 import random 
 import sys
 import pandas as pd
-import matplotlib.pyplot as plt 
 import scipy.io
 from pathlib import Path
 import torch
@@ -85,9 +85,8 @@ import argparse
 parser = argparse.ArgumentParser()
 # TODO: modify the standard location 
 parser.add_argument("-I","--input",help="Insert the input file name", default="abstracts_eng.csv")
-parser.add_argument("-L","--location",help="Insert the working directory", default="/mnt/ds3lab-scratch/dslab2020/ethsearch/")
-parser.add_argument("-O","--output",help="Insert the output file name")
-parser.add_argument("-B","--batch",default=0,help="Insert number of the batch to work on") # each job will work only on one batch
+parser.add_argument("-L","--location",help="Insert the working directory", default="/cluster/home/glanzillo/etm/")
+parser.add_argument("-B","--batch",default=0, type=int, help="Insert number of the batch to work on") # each job will work only on one batch
 parser.add_argument("-V","--vocab",
     help="Insert the name of the file where to save the vocabulary", 
     default="vocab_etm") 
@@ -137,7 +136,7 @@ print("Loading successful ")
 
 random.seed(SEED)
 random.shuffle(collection)
-start = BATCH_SIZE*args.B
+start = BATCH_SIZE*args.batch
 batch = collection[start:start+BATCH_SIZE]
 
 
@@ -179,12 +178,19 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
     """
     
     tokenised_collection = tokenizer(doc_subset, return_tensors="pt", padding=True)
+    model.resize_token_embeddings(len(tokenizer))
     print("tokenisation done")
-    embedded_collection = model(**tokenised_collection)
+    try: 
+        with torch.no_grad(): 
+            embedded_collection = model(**tokenised_collection)
+    except Exception as e: 
+        print("There was a problem with this subset, we'll skip it!")
+        print(e)
+        return set_of_embeddings, idx2word, new_token_ids
     embedded_collection.requires_grad = False
     # extract lower layers hidden states
     #lower_hiddens = torch.sum(torch.stack(embedded_collection[1][3:6], dim=0), dim=0)
-    lower_hiddens = embedded_collection[1][6]
+    lower_hiddens = embedded_collection[1][6].cpu()
 
     print("embeddings done")
     
@@ -211,8 +217,7 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
             token_id = tokens_ids[j].cpu().numpy() # bert current token 
             word = tokenizer.convert_ids_to_tokens([token_id])[0] # corresponding word
             # jump to the next token if the word is a stopword 
-            if word in stop_words: continue 
-            
+            if word in stop_words or word.startswith("##"): continue 
             if word not in idx2word.values(): # we add the embedding anyway if we haven't encountered that word previously 
                 # add new embedding to the set 
                 set_of_embeddings.add(emb_vector)
@@ -321,6 +326,8 @@ print("## -------------------------------------")
 
 tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
+bert.eval()
+bert.to(device)
 embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
 vocab_size = len(idx2word)
 
@@ -539,7 +546,7 @@ print('model: {}'.format(etm_model))
 optimizer = get_optimizer(name=_optimizer, model=etm_model)
 
 # Initialising the data structures 
-best_epoch = 0
+best_epoch = 0 
 best_val_ppl = 1e9
 all_val_ppls = []
 
