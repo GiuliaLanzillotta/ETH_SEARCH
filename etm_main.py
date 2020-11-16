@@ -6,6 +6,7 @@ import time
 import argparse
 import pickle 
 import numpy as np 
+import string
 import os 
 import math 
 import random 
@@ -27,11 +28,11 @@ from transformers import DistilBertTokenizerFast, DistilBertModel
 ## -------------------------------------
 
 SEED = 11 
-BATCH_SIZE = 500
-SUBSET_SIZE = 25
+BATCH_SIZE = 3000
+SUBSET_SIZE = 100
 
 ### model-related arguments 
-rho_size = 300 # dimension of rho 
+rho_size = 768 # dimension of rho 
 emb_size = 768 # dimension of embeddings 
 t_hidden_size = 800 # dimension of hidden space of q(theta)
 theta_act = 'relu' # either tanh, softplus, relu, rrelu, leakyrelu, elu, selu, glu
@@ -96,7 +97,7 @@ parser.add_argument("-E","--embedding",
 parser.add_argument("-T","--tokens",
     help="Insert the name of the file where to save the tokens produces", 
     default="new_tokens_etm")
-parser.add_argument("-K","--topics",
+parser.add_argument("-K","--topics", type=int, 
     help="Insert the number of topics per batch.", 
     default=25)
 # note: the results directory will be created in the location 
@@ -106,6 +107,7 @@ parser.add_argument("-R","--results",
     default="./results_etm/") 
 parser.add_argument("-F","--from_file",
     help="Insert whether to load the processed input from file or run the processing.", 
+    type= bool, 
     default=False) 
 args  = parser.parse_args()
 
@@ -151,6 +153,7 @@ from nltk.corpus import stopwords
 #   lower casing so we should be fine! read more 
 #   here: https://huggingface.co/transformers/_modules/transformers/tokenization_distilbert_fast.html
 stop_words = stopwords.words('english') 
+
 
 # First defining utility functions 
 # ---------------
@@ -217,7 +220,7 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
             token_id = tokens_ids[j].cpu().numpy() # bert current token 
             word = tokenizer.convert_ids_to_tokens([token_id])[0] # corresponding word
             # jump to the next token if the word is a stopword 
-            if word in stop_words or word.startswith("##"): continue 
+            if word in stop_words or word.startswith("##") or word in string.punctuation: continue 
             if word not in idx2word.values(): # we add the embedding anyway if we haven't encountered that word previously 
                 # add new embedding to the set 
                 set_of_embeddings.add(emb_vector)
@@ -310,7 +313,7 @@ def do_processing(tokenizer, model, load_from_file):
         with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
     else: 
         set_of_embeddings, idx2word, new_token_ids = process_batch(batch, SUBSET_SIZE, tokenizer, model)
-        embedding = torch.stack(list(set_of_embeddings), axis=1)
+        embedding = torch.stack(list(set_of_embeddings))
         print("Saving to binary the results of the input processing.")
         # saving to binary intermediate result 
         with open(os.path.join(results_path, args.vocab), "wb") as fp: pickle.dump(idx2word, fp)
@@ -373,7 +376,7 @@ _training_batch_size = int(len(train_corpus)*training_batch_size)
 _eval_batch_size = int(len(test_corpus)*eval_batch_size) 
 
 def train(model, epoch, corpus, num_docs_train=num_docs_train, 
-            batch_size=batch_size, vocab_size=vocab_size, 
+            batch_size=_training_batch_size, vocab_size=vocab_size, 
             bow_norm=bow_norm, clip=clip, log_interval=log_interval):
     """ Just the training function ... """
     
