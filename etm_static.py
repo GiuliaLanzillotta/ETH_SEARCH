@@ -14,6 +14,8 @@ import random
 import sys
 import pandas as pd
 import scipy.io
+import nltk
+nltk.download('stopwords')
 from pathlib import Path
 import torch
 from torch import nn, optim
@@ -90,7 +92,7 @@ import argparse
 parser = argparse.ArgumentParser()
 # TODO: modify the standard location
 parser.add_argument("-I", "--input", help="Insert the input file name", default="abstracts_eng.csv")
-parser.add_argument("-L", "--location", help="Insert the working directory", default="/cluster/home/glanzillo/etm/")
+parser.add_argument("-L", "--location", help="Insert the working directory", default="/cluster/home/dgarellick/ETH_SEARCH")
 parser.add_argument("-B", "--batch", default=0, type=int,
                     help="Insert number of the batch to work on")  # each job will work only on one batch
 parser.add_argument("-V", "--vocab",
@@ -156,7 +158,7 @@ from nltk.corpus import stopwords
 #   case but distilbert tokenizer incorporates
 #   lower casing so we should be fine! read more
 #   here: https://huggingface.co/transformers/_modules/transformers/tokenization_distilbert_fast.html
-stop_words = stopwords.words('english')
+stop_words = set(stopwords.words('english'))
 
 
 # First defining utility functions
@@ -314,7 +316,7 @@ def get_batch(corpus, ind, vocab_size, device, emsize=300):
     return data_batch
 
 
-def do_processing(tokenizer, model, load_from_file):
+def do_processing(tokenizer, model, load_from_file, idx2word, word2uniquevec):
     if load_from_file:
         # Loading from binary
         print("Loading from binary the processed input.")
@@ -325,7 +327,7 @@ def do_processing(tokenizer, model, load_from_file):
         with open(os.path.join(results_path, args.tokens), "rb") as fp:
             new_token_ids = pickle.load(fp)
     else:
-        word2uniquevec, idx2word, new_token_ids = process_batch_static(batch, SUBSET_SIZE, tokenizer, model,idx2word, word2uniquevec)
+        word2uniquevec, idx2word, new_token_ids = process_batch_static(batch, SUBSET_SIZE, tokenizer, model, idx2word, word2uniquevec)
         set_of_embeddings = word2uniquevec.values()
         embedding = torch.stack(list(set_of_embeddings))
         print("Saving to binary the results of the input processing.")
@@ -348,7 +350,8 @@ tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
 bert.eval()
 bert.to(device)
-embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
+idx2word = {}
+embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file, idx2word, word2uniquevec)
 vocab_size = len(idx2word)
 
 
