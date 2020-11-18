@@ -15,7 +15,7 @@ import sys
 import pandas as pd
 import scipy.io
 import nltk
-nltk.download('stopwords')
+#nltk.download('stopwords')
 from pathlib import Path
 import torch
 from torch import nn, optim
@@ -258,8 +258,6 @@ def process_subset_static(doc_subset, tokenizer, model,
 
 def process_batch_static(batch, subset_size, tokeniser, model, idx2word, word2uniquevec):
     """ Processing of a batch of documents in the collection. """
-    from sklearn.decomposition import PCA  # , FastICA
-
     ## initialisation
     new_token_ids = []
     word2manyvec = {}
@@ -275,6 +273,7 @@ def process_batch_static(batch, subset_size, tokeniser, model, idx2word, word2un
         else:
             batch_subset = batch[s:]
         # iteratively update idx2word, new_token_ids, word2manyvec throughout the batch
+        print(batch_subset[0:5])
         idx2word, new_token_ids, word2manyvec = process_subset_static(batch_subset, tokenizer, model,
                                                                       idx2word, new_token_ids,
                                                                       word2uniquevec, word2manyvec, selected_layer=1)
@@ -306,7 +305,7 @@ def get_batch(corpus, ind, vocab_size, device, emsize=300):
     data_batch = np.zeros((batch_size, vocab_size))
 
     for i, doc_id in enumerate(ind):
-        doc = corpus[doc_id]
+        doc = corpus[doc_id.data]
         L = len(doc)
         if doc_id != -1:
             for word_id in doc:
@@ -592,7 +591,7 @@ for epoch in range(1, epochs):
 
     train(etm_model, epoch, train_corpus)  # train
     num_docs_test = len(new_token_ids) - num_docs_train
-    val_ppl = evaluate(etm_model, test_corpus, num_docs_test)  # evaluate
+    val_ppl = evaluate(etm_model, test_corpus, num_docs_test)  # evaluate\
 
     # only saving the model if it's the best so far
     if val_ppl < best_val_ppl:
