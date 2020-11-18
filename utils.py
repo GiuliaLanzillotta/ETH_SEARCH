@@ -74,15 +74,13 @@ def get_topic_coherence(beta, data, vocab):
     print('Topic coherence is: {}'.format(TC))
 
 def nearest_neighbors(q, embeddings, vocab):
-    query = q.data.cpu().numpy()
-    vectors = embeddings.data.cpu().numpy() 
-    ranks = vectors.dot(query.T).squeeze()
-    denom = query.T.dot(query).squeeze()
-    denom = denom * np.sum((vectors.T)**2, 0)
-    denom = np.sqrt(denom)
-    ranks = ranks / denom
+
+    #TODO: fix this and run it 
+    
+    cos = torch.nn.CosineSimilarity(dim = -1)
+    ranks = cos(q, embeddings)
     mostSimilar = []
-    [mostSimilar.append(idx) for idx in ranks.argsort()[::-1]]
+    [mostSimilar.append(idx) for idx in ranks.numpy().argsort()[::-1]]
     nns = mostSimilar[:10]
     nns = [vocab[comp] for comp in nns]
     return nns

@@ -14,6 +14,8 @@ import random
 import sys
 import pandas as pd
 import scipy.io
+import nltk
+nltk.download('stopwords')
 from pathlib import Path
 import torch
 from torch import nn, optim
@@ -90,7 +92,7 @@ import argparse
 parser = argparse.ArgumentParser()
 # TODO: modify the standard location
 parser.add_argument("-I", "--input", help="Insert the input file name", default="abstracts_eng.csv")
-parser.add_argument("-L", "--location", help="Insert the working directory", default="/cluster/home/glanzillo/etm/")
+parser.add_argument("-L", "--location", help="Insert the working directory", default="/cluster/home/dgarellick/ETH_SEARCH")
 parser.add_argument("-B", "--batch", default=0, type=int,
                     help="Insert number of the batch to work on")  # each job will work only on one batch
 parser.add_argument("-V", "--vocab",
@@ -156,7 +158,7 @@ from nltk.corpus import stopwords
 #   case but distilbert tokenizer incorporates
 #   lower casing so we should be fine! read more
 #   here: https://huggingface.co/transformers/_modules/transformers/tokenization_distilbert_fast.html
-stop_words = stopwords.words('english')
+stop_words = set(stopwords.words('english'))
 
 
 # First defining utility functions
@@ -313,6 +315,7 @@ def get_batch(corpus, ind, vocab_size, device, emsize=300):
     data_batch = torch.from_numpy(data_batch).float().to(device)
     return data_batch
 
+
 def do_processing(tokenizer, model, load_from_file, idx2word, word2uniquevec):
     if load_from_file:
         # Loading from binary
@@ -326,7 +329,7 @@ def do_processing(tokenizer, model, load_from_file, idx2word, word2uniquevec):
     else:
         word2uniquevec, idx2word, new_token_ids = process_batch_static(batch, SUBSET_SIZE, tokenizer, model, idx2word, word2uniquevec)
         set_of_embeddings = word2uniquevec.values()
-        embedding = torch.stack((list(set_of_embeddings)))
+        embedding = torch.stack(list(set_of_embeddings))
         print("Saving to binary the results of the input processing.")
         # saving to binary intermediate result
         with open(os.path.join(results_path, args.vocab), "wb") as fp:
@@ -489,8 +492,7 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
                 outputs.requires_grad = False
                 if outputs.size()[0] > 1:  # aggregate
                     outputs = torch.sum(outputs, dim=0)
-                nns = utils\
-                    .nearest_neighbors(q=outputs,
+                nns = utils.nearest_neighbors(q=outputs,
                                               embeddings=embeddings, vocab=list(vocab.values()))
                 print('word: {} .. neighbors: {}'.format(word, nns))  # utility function
 
