@@ -283,11 +283,11 @@ def process_batch_static(batch, subset_size, tokeniser, model, idx2word, word2un
         # for every new word discover, find unique vector representation by taking first PCA prinicipal component
     for word, veclist in word2manyvec.items():
         if len(veclist) == 1:  # otherwise we would just get the first standard unit vector from PCA
-            word2uniquevec[word] = veclist[0]
+            word2uniquevec[word] = torch.Tensor(veclist[0])
         else:
             pca = PCA(n_components=1)
             pca.fit(veclist)
-            word2uniquevec[word] = pca.components_[0]
+            word2uniquevec[word] = torch.Tensor(pca.components_[0])
 
     end = time.time()
     print("Total time: " + str(round(end - start, 2)) + " s.")
