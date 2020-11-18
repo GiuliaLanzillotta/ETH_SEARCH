@@ -313,8 +313,7 @@ def get_batch(corpus, ind, vocab_size, device, emsize=300):
     data_batch = torch.from_numpy(data_batch).float().to(device)
     return data_batch
 
-
-def do_processing(tokenizer, model, load_from_file):
+def do_processing(tokenizer, model, load_from_file, idx2word, word2uniquevec):
     if load_from_file:
         # Loading from binary
         print("Loading from binary the processed input.")
@@ -325,9 +324,9 @@ def do_processing(tokenizer, model, load_from_file):
         with open(os.path.join(results_path, args.tokens), "rb") as fp:
             new_token_ids = pickle.load(fp)
     else:
-        word2uniquevec, idx2word, new_token_ids = process_batch_static(batch, SUBSET_SIZE, tokenizer, model,idx2word, word2uniquevec)
+        word2uniquevec, idx2word, new_token_ids = process_batch_static(batch, SUBSET_SIZE, tokenizer, model, idx2word, word2uniquevec)
         set_of_embeddings = word2uniquevec.values()
-        embedding = torch.stack(list(set_of_embeddings))
+        embedding = torch.stack((list(set_of_embeddings)))
         print("Saving to binary the results of the input processing.")
         # saving to binary intermediate result
         with open(os.path.join(results_path, args.vocab), "wb") as fp:
@@ -348,7 +347,7 @@ tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
 bert.eval()
 bert.to(device)
-embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
+embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file, idx2word, word2uniquevec)
 vocab_size = len(idx2word)
 
 
@@ -490,7 +489,8 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
                 outputs.requires_grad = False
                 if outputs.size()[0] > 1:  # aggregate
                     outputs = torch.sum(outputs, dim=0)
-                nns = utils.nearest_neighbors(q=outputs,
+                nns = utils\
+                    .nearest_neighbors(q=outputs,
                                               embeddings=embeddings, vocab=list(vocab.values()))
                 print('word: {} .. neighbors: {}'.format(word, nns))  # utility function
 
