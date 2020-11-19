@@ -6,6 +6,8 @@ import time
 import argparse
 import pickle 
 import numpy as np 
+import nltk 
+nltk.download('punkt')
 import string
 import os 
 import math 
@@ -32,8 +34,7 @@ BATCH_SIZE = 3000
 SUBSET_SIZE = 100
 
 ### model-related arguments 
-rho_size = 768 # dimension of rho 
-emb_size = 768 # dimension of embeddings 
+
 t_hidden_size = 800 # dimension of hidden space of q(theta)
 theta_act = 'relu' # either tanh, softplus, relu, rrelu, leakyrelu, elu, selu, glu
 train_embeddings = False
@@ -91,9 +92,12 @@ parser.add_argument("-B","--batch",default=0, type=int, help="Insert number of t
 parser.add_argument("-V","--vocab",
     help="Insert the name of the file where to save the vocabulary", 
     default="vocab_etm") 
-parser.add_argument("-E","--embedding",
+parser.add_argument("-EF","--embedding_file",
     help="Insert the name of the file where to save the embedding",       
     default="embedding_etm") 
+parser.add_argument("-E","--embedding",
+    help="Insert the name of the embedding to use",       
+    default="glove") 
 parser.add_argument("-T","--tokens",
     help="Insert the name of the file where to save the tokens produces", 
     default="new_tokens_etm")
@@ -119,6 +123,17 @@ input_file = args.input
 input_path = os.path.join(location,input_file)
 results_path = os.path.join(location,args.results)
 num_topics = args.topics
+# global flags
+global BERT
+global GLOVE 
+BERT = args.embedding.lower() == "bert"
+GLOVE = args.embedding.lower() == "glove"
+if BERT: 
+    rho_size = 768 # dimension of rho 
+    emb_size = 768 # dimension of embeddings 
+if GLOVE: 
+    rho_size = 300 
+    emb_size = 300 
 ckpt = os.path.join(results_path, 'etm_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_trainEmbeddings_{}'.format(
          num_topics, t_hidden_size, _optimizer, clip, theta_act, lr, training_batch_size, rho_size, train_embeddings))
 
@@ -148,17 +163,26 @@ batch = collection[start:start+BATCH_SIZE]
 ## -------------------------------------
 
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
 # note: the words in this list are only lower 
 #   case but distilbert tokenizer incorporates 
 #   lower casing so we should be fine! read more 
 #   here: https://huggingface.co/transformers/_modules/transformers/tokenization_distilbert_fast.html
 stop_words = stopwords.words('english') 
-
+nouns = {x.name().split('.', 1)[0] for x in wn.all_synsets('n')}
+def get_custom_stopwords():
+    custom_stops = []
+    with open("stops.txt", 'r', encoding="utf-8") as f:
+        for line in enumerate(f):
+            word = line[1].split()[0]
+            custom_stops.append(word)
+    return custom_stops
+custom_stops = get_custom_stopwords()
 
 # First defining utility functions 
 # ---------------
 def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings, 
-                          idx2word, new_token_ids, threshold=0.9):
+                          idx2word, new_token_ids, threshold=0.9, only_nouns=True):
     """ 
     Processing of a subset of the batch using cosine similarity clustering. 
     
@@ -192,8 +216,8 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
         return set_of_embeddings, idx2word, new_token_ids
     embedded_collection.requires_grad = False
     # extract lower layers hidden states
-    #lower_hiddens = torch.sum(torch.stack(embedded_collection[1][3:6], dim=0), dim=0)
-    lower_hiddens = embedded_collection[1][6].cpu()
+    lower_hiddens = torch.sum(torch.stack(embedded_collection[1][0:4], dim=0), dim=0)
+    #lower_hiddens = embedded_collection[1][6].cpu()
 
     print("embeddings done")
     
@@ -220,6 +244,7 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
             token_id = tokens_ids[j].cpu().numpy() # bert current token 
             word = tokenizer.convert_ids_to_tokens([token_id])[0] # corresponding word
             # jump to the next token if the word is a stopword 
+            if only_nouns and word not in nouns: continue
             if word in stop_words or word.startswith("##") or word in string.punctuation: continue 
             if word not in idx2word.values(): # we add the embedding anyway if we haven't encountered that word previously 
                 # add new embedding to the set 
@@ -284,7 +309,48 @@ def process_batch(batch, subset_size, tokenizer, model):
     
     return set_of_embeddings, idx2word, new_token_ids
 
-def get_batch(corpus, ind, vocab_size, device, emsize=300):
+from nltk.tokenize import word_tokenize 
+
+def tokenise_batch(batch, idx2word):
+    """ 
+        Tokenisation of a batch of documents in the collection given a pre-computed vocabulary.
+    """
+    
+    ## initialisation 
+    batch_size = len(batch)
+    total_words = 0
+    matched_words = 0
+    new_token_ids = []
+    
+    start = time.time()
+    
+    for i,doc in enumerate(batch): 
+        new_token_ids_doc = []
+        
+        for word in word_tokenize(doc.lower()): 
+            if word in stop_words or word in custom_stops: continue # ignore the word
+            total_words +=1
+            
+            if word in idx2word.values():
+                matched_words+=1
+                word_id = list(idx2word.values()).index(word)
+                new_token_ids_doc += [word_id]
+        
+        new_token_ids += [new_token_ids_doc]
+
+        if i%(batch_size//3)==0:
+            print(str(i+1)+ " documents tokenised.")
+            tmp = time.time()
+            print("Time so far: "+str(round(tmp-start,2))+" s.")
+        
+    end = time.time()
+    
+    print("Total time: "+str(round(end-start,2))+" s.")
+    print("Proportion of matched words: "+str(round(matched_words/total_words,2)))
+    
+    return new_token_ids
+
+def get_batch(corpus, ind, vocab_size, device):
     """
     This function takes as input a list of tokenised documents (corpus)
     and the indices of the documents in the batch (ind)
@@ -327,11 +393,26 @@ print("## -------------------------------------")
 print("##\t DATA PROCESSING ")
 print("## -------------------------------------")
 
-tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
-bert.eval()
-bert.to(device)
-embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
+if BERT: 
+    tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
+    bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
+    bert.eval()
+    bert.to(device)
+    embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
+
+if GLOVE: 
+    print("Loading glove vocabulary and embedding.")
+    with open(os.path.join(results_path, args.vocab), "rb") as fp: idx2word = pickle.load(fp)
+    with open(os.path.join(results_path, args.embedding_file), "rb") as fp: embedding = pickle.load(fp)
+    if args.from_file:  
+        with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
+    else: 
+        print("Tokenising the batch.")
+        new_token_ids = tokenise_batch(batch, idx2word)
+        print("Saving to binary the results of the input processing.")
+        with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
+
+
 vocab_size = len(idx2word)
 
 
@@ -364,7 +445,7 @@ def train_test_split(collection):
 
         The collection is a list of list of tokens. 
     """
-    num_docs_train = int(training_batch_size*BATCH_SIZE)
+    num_docs_train = int(training_docs*BATCH_SIZE)
     train_corpus = collection[:num_docs_train]
     test_corpus = collection[num_docs_train:]
     return num_docs_train, train_corpus, test_corpus
@@ -425,12 +506,13 @@ def train(model, epoch, corpus, num_docs_train=num_docs_train,
             epoch, optimizer.param_groups[0]['lr'], cur_kl_theta, cur_loss, cur_real_loss))
 
 def visualize(model, num_topics=num_topics, num_words=num_words, 
-                vocab=idx2word, show_emb=True, 
-                tokenizer=tokenizer, bert_model=bert):
+                vocab=idx2word, show_emb=True, **kwargs):
     """ 
     This is a cool visualisation function. 
     Takes as input the model so far and shows the discovered embeddings! 
     """
+    emb_model = kwargs.get("emb_model")
+    tokenizer = kwargs.get("tokenizer")
     model.eval() #set the net in evaluation mode 
     # set a few words to query 
     queries = ['insurance', 'weather', 'particles', 'religion', 'man', 'love', 
@@ -460,13 +542,18 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
             
             
             for word in queries:
-                # extracting Bert representation of the word
-                inputs = tokenizer(word, return_tensors="pt")
-                outputs = bert_model(**inputs).last_hidden_state[0]
-                outputs.requires_grad = False
-                if outputs.size()[0]>1: #aggregate
-                    outputs = torch.sum(outputs, dim=0)
-                nns = utils.nearest_neighbors(q=outputs, 
+                if BERT:
+                    # extracting Bert representation of the word
+                    inputs = tokenizer(word, return_tensors="pt")
+                    outputs = emb_model(**inputs).last_hidden_state[0]
+                    outputs.requires_grad = False
+                    if outputs.size()[0]>1: #aggregate
+                        outputs = torch.sum(outputs, dim=0)
+                    query=outputs
+                if GLOVE:
+                    word_id = list(vocab.values()).index(word)
+                    query = embeddings[word_id]
+                nns = utils.nearest_neighbors(q=query, 
                          embeddings=embeddings, vocab=list(vocab.values()))
                 print('word: {} .. neighbors: {}'.format(word, nns)) # utility function 
 
@@ -580,7 +667,9 @@ for epoch in range(1, epochs):
             
     # maybe visualise 
     if epoch % visualize_every == 0:
-        visualize(etm_model)
+        if GLOVE: visualize(etm_model)
+        if BERT: visualize(etm_model, tokenizer = tokenizer, emb_model=bert)
+
         
     #save perplexities 
     all_val_ppls.append(val_ppl)
