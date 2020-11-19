@@ -553,7 +553,7 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
                 if GLOVE:
                     word_id = list(vocab.values()).index(word)
                     query = embeddings[word_id]
-                nns = utils.nearest_neighbors(q=outputs, 
+                nns = utils.nearest_neighbors(q=query, 
                          embeddings=embeddings, vocab=list(vocab.values()))
                 print('word: {} .. neighbors: {}'.format(word, nns)) # utility function 
 
