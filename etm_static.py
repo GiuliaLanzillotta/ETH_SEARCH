@@ -33,7 +33,7 @@ from sklearn.decomposition import PCA
 
 SEED = 11
 BATCH_SIZE = 3000
-SUBSET_SIZE = 100
+SUBSET_SIZE = 25
 
 ### Initialise dictionaries for pre-processing
 word2uniquevec = {}
@@ -92,7 +92,7 @@ import argparse
 parser = argparse.ArgumentParser()
 # TODO: modify the standard location
 parser.add_argument("-I", "--input", help="Insert the input file name", default="abstracts_eng.csv")
-parser.add_argument("-L", "--location", help="Insert the working directory", default="/cluster/home/dgarellick/ETH_SEARCH")
+parser.add_argument("-L", "--location", help="Insert the working directory", default="C:\\Users\\danie\\PycharmProjects\\ETH_SEARCH")#"/cluster/home/dgarellick/ETH_SEARCH")
 parser.add_argument("-B", "--batch", default=0, type=int,
                     help="Insert number of the batch to work on")  # each job will work only on one batch
 parser.add_argument("-V", "--vocab",
@@ -195,7 +195,7 @@ def process_subset_static(doc_subset, tokenizer, model,
     except Exception as e:
         print("There was a problem with this subset, we'll skip it!")
         print(e)
-        return idx2word, new_token_ids, word2uniquevec
+        return idx2word, new_token_ids, word2manyvec
     embedded_collection.requires_grad = False
     # extract lower layers hidden states
     # lower_hiddens = torch.sum(torch.stack(embedded_collection[1][3:6], dim=0), dim=0)
@@ -273,7 +273,6 @@ def process_batch_static(batch, subset_size, tokeniser, model, idx2word, word2un
         else:
             batch_subset = batch[s:]
         # iteratively update idx2word, new_token_ids, word2manyvec throughout the batch
-        print(batch_subset[0:5])
         idx2word, new_token_ids, word2manyvec = process_subset_static(batch_subset, tokenizer, model,
                                                                       idx2word, new_token_ids,
                                                                       word2uniquevec, word2manyvec, selected_layer=1)
@@ -383,7 +382,7 @@ def train_test_split(collection):
 
         The collection is a list of list of tokens.
     """
-    num_docs_train = int(training_batch_size * BATCH_SIZE)
+    num_docs_train = int(training_docs * BATCH_SIZE)
     train_corpus = collection[:num_docs_train]
     test_corpus = collection[num_docs_train:]
     return num_docs_train, train_corpus, test_corpus
