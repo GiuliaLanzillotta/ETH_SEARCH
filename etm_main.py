@@ -404,9 +404,13 @@ if GLOVE:
     print("Loading glove vocabulary and embedding.")
     with open(os.path.join(results_path, args.vocab), "rb") as fp: idx2word = pickle.load(fp)
     with open(os.path.join(results_path, args.embedding_file), "rb") as fp: embedding = pickle.load(fp)
-    new_token_ids = tokenise_batch(batch, idx2word)
-    print("Saving to binary the results of the input processing.")
-    with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
+    if args.from_file:  
+        with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
+    else: 
+        print("Tokenising the batch.")
+        new_token_ids = tokenise_batch(batch, idx2word)
+        print("Saving to binary the results of the input processing.")
+        with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
 
 
 vocab_size = len(idx2word)
@@ -502,12 +506,13 @@ def train(model, epoch, corpus, num_docs_train=num_docs_train,
             epoch, optimizer.param_groups[0]['lr'], cur_kl_theta, cur_loss, cur_real_loss))
 
 def visualize(model, num_topics=num_topics, num_words=num_words, 
-                vocab=idx2word, show_emb=True, 
-                tokenizer=tokenizer, emb_model=bert):
+                vocab=idx2word, show_emb=True, **kwargs):
     """ 
     This is a cool visualisation function. 
     Takes as input the model so far and shows the discovered embeddings! 
     """
+    emb_model = kwargs.get("emb_model")
+    tokenizer = kwargs.get("tokenizer")
     model.eval() #set the net in evaluation mode 
     # set a few words to query 
     queries = ['insurance', 'weather', 'particles', 'religion', 'man', 'love', 
@@ -662,7 +667,9 @@ for epoch in range(1, epochs):
             
     # maybe visualise 
     if epoch % visualize_every == 0:
-        visualize(etm_model)
+        if GLOVE: visualize(etm_model)
+        if BERT: visualize(etm_model, tokenizer = tokenizer, emb_model=bert)
+
         
     #save perplexities 
     all_val_ppls.append(val_ppl)
