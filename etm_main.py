@@ -30,8 +30,10 @@ from transformers import DistilBertTokenizerFast, DistilBertModel
 ## -------------------------------------
 
 SEED = 11 
-BATCH_SIZE = 3000
+BATCH_SIZE = 10000
 SUBSET_SIZE = 100
+GLOVE_VOCAB_PATH = "glove_vocab"
+GLOVE_EMBEDDING_PATH = "glove_embedding"
 
 ### model-related arguments 
 
@@ -41,22 +43,22 @@ train_embeddings = False
 
 ### optimization-related arguments
 lr = 0.05
-lr_factor = 5.0 #divide learning rate by this
-epochs = 100 
+lr_factor = 1.1 #divide learning rate by this
+epochs = 1000 
 enc_drop = 0.0 # dropout rate on encoder
 clip = 0.0 # gradient clipping
 nonmono = 10 # number of bad hits allowed ...?
 weight_decay = 1.2e-6
 anneal_lr = False # whether to anneal the learning rate or not
 bow_norm = True # normalize the bows or not 
-_optimizer = "adam"
+_optimizer = "adagrad"
 
 ### evaluation, visualization, and logging-related arguments
 num_words = 10 #number of words for topic viz'
 log_interval = 2 #when to log training
 visualize_every = 10 #when to visualize results
-tc = False # whether to compute topic coherence or not
-td = False # whether to compute topic diversity or not
+tc = True # whether to compute topic coherence or not
+td = True # whether to compute topic diversity or not
 
 ### data and file related arguments
 training_docs = 0.8
@@ -280,7 +282,7 @@ def process_subset_cosine(doc_subset, tokenizer, model, set_of_embeddings,
     
     return set_of_embeddings, idx2word, new_token_ids
 
-def process_batch(batch, subset_size, tokenizer, model):
+def process_batch_bert(batch, subset_size, tokenizer, model):
     """ Processing of a batch of documents in the collection. """
     
     ## initialisation 
@@ -366,28 +368,114 @@ def get_batch(corpus, ind, vocab_size, device):
         if doc_id != -1:
             for word_id in doc:
                 counts = doc.count(word_id)
-                data_batch[i, word_id] = counts
+                try:data_batch[i, word_id] = counts
+                except: continue
     data_batch = torch.from_numpy(data_batch).float().to(device)
     return data_batch
 
-def do_processing(tokenizer, model, load_from_file):
+def do_bert_processing(tokenizer, model, load_from_file):
     if load_from_file: 
         # Loading from binary 
         print("Loading from binary the processed input.")
         with open(os.path.join(results_path, args.vocab), "rb") as fp: idx2word = pickle.load(fp)
-        with open(os.path.join(results_path, args.embedding), "rb") as fp: embedding = pickle.load(fp)
+        with open(os.path.join(results_path, args.embedding_file), "rb") as fp: embedding = pickle.load(fp)
         with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
     else: 
-        set_of_embeddings, idx2word, new_token_ids = process_batch(batch, SUBSET_SIZE, tokenizer, model)
+        set_of_embeddings, idx2word, new_token_ids = process_batch_bert(batch, SUBSET_SIZE, tokenizer, model)
         embedding = torch.stack(list(set_of_embeddings))
         print("Saving to binary the results of the input processing.")
         # saving to binary intermediate result 
         with open(os.path.join(results_path, args.vocab), "wb") as fp: pickle.dump(idx2word, fp)
-        with open(os.path.join(results_path, args.embedding), "wb") as fp: pickle.dump(embedding, fp)
+        with open(os.path.join(results_path, args.embedding_file), "wb") as fp: pickle.dump(embedding, fp)
         with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
 
     return embedding, idx2word, new_token_ids
 
+from collections import Counter
+import itertools
+
+def compute_DF(corpus):
+    """ Computes document frequencies for every word in the collection."""
+    tokenised_batch = list(itertools.chain(*[set(word_tokenize(doc.lower())) for doc in corpus]))
+    word2counts = Counter(tokenised_batch)
+    word2frequecies = {k: v/len(corpus) for k, v in word2counts.items()}
+    return word2frequecies
+
+
+def process_batch_glove(batch, glove_embedding, glove_vocab):
+    """ 
+        Process the collection filtering out stopwords and too frequent words. 
+        Returns the tokenised collection according to the filtered vocabulary. 
+    """
+    
+    
+    ## initialisation 
+    idx = 0
+    batch_size = len(batch)
+    total_words = 0
+    matched_words = 0
+    new_token_ids = []
+    idx2word = {}
+    embeddings = []
+    DFs = compute_DF(batch)
+    
+    start = time.time()
+    
+    for i,doc in enumerate(batch): 
+        new_token_ids_doc = []
+        
+        for word in word_tokenize(doc.lower()): 
+                     
+            if word in idx2word.values(): # the word is already present in our vocabulary 
+                word_id = list(idx2word.values()).index(word)
+                new_token_ids_doc += [word_id]
+            else : # new word!
+                # check whether we want it 
+                if word in stop_words or word in custom_stops or word in string.punctuation: continue 
+                if DFs[word]>0.7: continue # filtering out words that appear in more than 70% of the documents 
+                # okay we want it 
+                total_words +=1
+                # now check whether we have an embedding in glove for it 
+                if word in glove_vocab.values(): 
+                    # and we have it! 
+                    matched_words+=1 
+                    new_token_ids_doc += [idx]
+                    idx2word[idx]=word
+                    emb = glove_embedding[list(glove_vocab.values()).index(word)]
+                    embeddings.append(emb)
+                    idx+=1
+
+        new_token_ids += [new_token_ids_doc]
+        
+        if i%(batch_size//3)==0:
+            print(str(i+1)+ " documents done. Number of words found: "+str(idx))
+            tmp = time.time()
+            print("Time so far: "+str(round(tmp-start,2))+" s.")
+            
+    end = time.time()
+    
+    print("Total time: "+str(round(end-start,2))+" s.")
+    print("Proportion of matched words: "+str(round(matched_words/total_words,2)))
+    
+    return new_token_ids, idx2word, embeddings
+
+def do_glove_processing(glove_embedding, glove_vocab, load_from_file):
+    if load_from_file: 
+        # Loading from binary 
+        print("Loading from binary the processed input.")
+        with open(os.path.join(results_path, args.vocab), "rb") as fp: idx2word = pickle.load(fp)
+        with open(os.path.join(results_path, args.embedding_file), "rb") as fp: embedding = pickle.load(fp)
+        with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
+    else: 
+        new_token_ids, idx2word, embeddings = process_batch_glove(batch, glove_embedding, glove_vocab)
+        embedding = torch.stack(embeddings)
+        print("Saving to binary the results of the input processing.")
+        # saving to binary intermediate result 
+        with open(os.path.join(results_path, args.vocab), "wb") as fp: pickle.dump(idx2word, fp)
+        with open(os.path.join(results_path, args.embedding_file), "wb") as fp: pickle.dump(embedding, fp)
+        with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
+
+    return new_token_ids, idx2word, embedding
 
 print("## -------------------------------------")
 print("##\t DATA PROCESSING ")
@@ -398,19 +486,13 @@ if BERT:
     bert = DistilBertModel.from_pretrained('distilbert-base-uncased', return_dict=True, output_hidden_states=True)
     bert.eval()
     bert.to(device)
-    embedding, idx2word, new_token_ids = do_processing(tokenizer, bert, args.from_file)
+    embedding, idx2word, new_token_ids = do_bert_processing(tokenizer, bert, args.from_file)
 
 if GLOVE: 
     print("Loading glove vocabulary and embedding.")
-    with open(os.path.join(results_path, args.vocab), "rb") as fp: idx2word = pickle.load(fp)
-    with open(os.path.join(results_path, args.embedding_file), "rb") as fp: embedding = pickle.load(fp)
-    if args.from_file:  
-        with open(os.path.join(results_path, args.tokens), "rb") as fp: new_token_ids = pickle.load(fp)
-    else: 
-        print("Tokenising the batch.")
-        new_token_ids = tokenise_batch(batch, idx2word)
-        print("Saving to binary the results of the input processing.")
-        with open(os.path.join(results_path, args.tokens), "wb") as fp: pickle.dump(new_token_ids, fp)
+    with open(os.path.join(results_path, GLOVE_VOCAB_PATH), "rb") as fp: glove_vocab = pickle.load(fp)
+    with open(os.path.join(results_path, GLOVE_EMBEDDING_PATH), "rb") as fp: glove_embedding = pickle.load(fp)
+    new_token_ids, idx2word, embedding = do_glove_processing(glove_embedding, glove_vocab, args.from_file)
 
 
 vocab_size = len(idx2word)
@@ -479,7 +561,7 @@ def train(model, epoch, corpus, num_docs_train=num_docs_train,
         else: normalized_data_batch = data_batch
         # loss on the batch 
         recon_loss, kld_theta = model(data_batch, normalized_data_batch)
-        total_loss = recon_loss + kld_theta
+        total_loss = recon_loss + 0.1*kld_theta
         total_loss.backward(retain_graph=True) # compute backpropagation
         # maybe clip the gradient 
         if clip > 0: torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
@@ -527,7 +609,7 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
         for k in range(num_topics):
             gamma = gammas[k]
             top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
-            topic_words = [vocab[a] for a in top_words] 
+            topic_words = [glove_vocab[a] for a in top_words] 
             topics_words.append(' '.join(topic_words))
             print('Topic {}: {}'.format(k, topic_words))
 
@@ -536,9 +618,6 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
             print('-'*20)
             print('Visualize word embeddings by using output embedding matrix')
             
-            # extract the embeddings from the model! 
-            try:embeddings = model.rho.weight  # Vocab_size x E
-            except:embeddings = model.rho         # Vocab_size x E
             
             
             for word in queries:
@@ -551,10 +630,10 @@ def visualize(model, num_topics=num_topics, num_words=num_words,
                         outputs = torch.sum(outputs, dim=0)
                     query=outputs
                 if GLOVE:
-                    word_id = list(vocab.values()).index(word)
-                    query = embeddings[word_id]
+                    word_id = list(glove_vocab.values()).index(word)
+                    query = glove_embedding[word_id]
                 nns = utils.nearest_neighbors(q=query, 
-                         embeddings=embeddings, vocab=list(vocab.values()))
+                         embeddings=glove_embedding, vocab=list(glove_vocab.values()))
                 print('word: {} .. neighbors: {}'.format(word, nns)) # utility function 
 
 def evaluate(model, train_corpus, test_coprus, vocab=idx2word,
@@ -622,14 +701,14 @@ print("## -------------------------------------")
 
 # define model
 etm_model = ETM(num_topics = num_topics, 
-            vocab_size = vocab_size, 
-            t_hidden_size = t_hidden_size, 
-            rho_size = rho_size, 
-            emsize = emb_size, 
-            theta_act = theta_act, 
-            embeddings = embedding,
-            train_embeddings = train_embeddings, 
-            enc_drop = enc_drop).to(device)
+                vocab_size = vocab_size, 
+                t_hidden_size = t_hidden_size, 
+                rho_size = rho_size, 
+                emsize = emb_size, 
+                theta_act = theta_act, 
+                embeddings = embedding,
+                train_embeddings = train_embeddings, 
+                enc_drop = enc_drop).to(device)
 
 print('model: {}'.format(etm_model))
 
@@ -667,7 +746,7 @@ for epoch in range(1, epochs):
             
     # maybe visualise 
     if epoch % visualize_every == 0:
-        if GLOVE: visualize(etm_model)
+        if GLOVE: visualize(etm_model, show_emb=False)
         if BERT: visualize(etm_model, tokenizer = tokenizer, emb_model=bert)
 
         
