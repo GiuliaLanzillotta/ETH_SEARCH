@@ -132,7 +132,7 @@ def get_num_tokens(collection):
 ## LDA grid search
 ## -------------------------------------
 
-def train_LDA(documents, k, min_cf=0, min_df=0, rm_top=5, alpha=0.1, eta=0.01, model_burn_in=100,
+def train_LDA(documents, k, min_cf=0, min_df=0, rm_top=8, alpha=0.1, eta=0.01, model_burn_in=100,
               train_updates = 1000, train_iter = 10):
     # instantiate
     model = tp.LDAModel(tw=tp.TermWeight.IDF, min_df=min_df, min_cf=min_cf, rm_top=rm_top, k=k, alpha = alpha,
@@ -159,7 +159,7 @@ def LDA_search(train_docs, test_docs):
     print("Starting LDA grid search ...")
 
     # THE GRID
-    ks = [25, 50, 75, 100]
+    ks = [75, 100, 125, 150, 175]
 
     grid_results = pd.DataFrame(columns=["K","alpha","eta","perplexity"])
 
@@ -169,8 +169,8 @@ def LDA_search(train_docs, test_docs):
 
     for k in ks:
         startk = time.time()
-        for alpha in [1 / k, 10 / k, 0.1 / k]:
-            for eta in [1 / w, 10 / w, 0.1 / w]:
+        for alpha in [1 / k, 0.1 / k, 0.01/k]:
+            for eta in [1 / w, 0.1 / w, 0.01/w]:
 
                 print(" ------------------------------------------- ")
                 print("| K = " + str(k) + "|\t alpha = " + str(alpha) + "\t| eta=" + str(eta))
@@ -185,9 +185,10 @@ def LDA_search(train_docs, test_docs):
                 ll = get_test_LL(test_docs, model)
                 pp = compute_test_pp(ll, test_docs)
                 grid_results = grid_results.append({"K":k, "alpha":alpha,
-                                                    "eta":eta,"perplexity":pp}, ignore_index=True)
+                                                    "eta":eta,"perplexity":pp, "log-likelihood":ll}, ignore_index=True)
 
                 print("Test perplexity = " + str(pp))
+                print("Test log-likelihood = " + str(ll))
             
                 
 
