@@ -25,7 +25,8 @@ import tomotopy as tp
 ## Constants / hyperparameters  
 ## collecting here all the constant so that they're easier to spot and work on for us
 ## -------------------------------------
-TRAIN_PERC = 0.7
+TRAIN_PERC = 0.8
+SUBSET = 5000
 MODEL_BURN_IN = 250
 TRAIN_UPDATES = 1000
 TRAIN_ITERS = 10
@@ -79,9 +80,10 @@ print("Loading successful ")
 # split data in train and test set
 print("Splitting the data into train and testing ...")
 random.seed = 11
-train_size = int(TRAIN_PERC*len(documents)) 
-test_size = int((1-TRAIN_PERC)*len(documents)) 
 random.shuffle(documents)
+documents = documents[0:SUBSET]
+train_size = int(TRAIN_PERC*len(documents)) 
+test_size = int((1-TRAIN_PERC)*len(documents))
 train_docs = documents[0:train_size]
 test_docs = documents[train_size:]
 
@@ -130,10 +132,10 @@ def get_num_tokens(collection):
 ## LDA grid search
 ## -------------------------------------
 
-def train_LDA(documents, k, min_cf=0, min_df=0, rm_top=0, alpha=0.1, eta=0.01, model_burn_in=100, 
+def train_LDA(documents, k, min_cf=0, min_df=0, rm_top=5, alpha=0.1, eta=0.01, model_burn_in=100,
               train_updates = 1000, train_iter = 10):
     # instantiate
-    model = tp.LDAModel(tw=tp.TermWeight.ONE, min_df=min_df, min_cf=min_cf, rm_top=rm_top, k=k, alpha = alpha, 
+    model = tp.LDAModel(tw=tp.TermWeight.IDF, min_df=min_df, min_cf=min_cf, rm_top=rm_top, k=k, alpha = alpha,
                         eta = eta)
     # add documents to model
     for doc in documents: model.add_doc(doc)
@@ -157,7 +159,7 @@ def LDA_search(train_docs, test_docs):
     print("Starting LDA grid search ...")
 
     # THE GRID
-    ks = [50, 100, 150, 200, 300, 350, 450]
+    ks = [25, 50, 75, 100]
 
     grid_results = pd.DataFrame(columns=["K","alpha","eta","perplexity"])
 
