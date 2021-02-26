@@ -1,0 +1,141 @@
+CYPHER QUERIES:
+
+MATCH (t:Topic) - [r:EXPERT_ON] - (p:Person)
+WHERE p.name = "Ghaffari, Mohsen"
+RETURN r.weight, t
+ORDER BY r.weight DESC 
+
+MATCH (p:Publication) - [r:PUBLISHED] - (a:Person)
+SET r.weight = 1-toFloat(duration.between(p.date, date("2020-01-01")).years)/toFloat(duration.between(date("1930-01-01"),date("2020-01-01")).years)
+
+WITH ['climat', 'chang'] as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH t, size(words) as inputCnt, count(DISTINCT w) as cnt, SUM(r1.weight) as s
+WHERE cnt = inputCnt
+RETURN t, s
+ORDER BY s DESC
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name = "Informatik"
+WITH t,a, SUM(r1.weight*r2.weight) as s
+CREATE (a)-[r3:EXPERT_ON]->(t) 
+SET r3.weight = s
+
+WITH ['machin', 'learn'] as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH t, size(words) as inputCnt, count(DISTINCT w) as cnt, SUM(r1.weight) as s
+WHERE cnt = inputCnt
+WITH  t, s
+MATCH (t)-[r3:EXPERT_ON] - (p:Person)
+WITH p, SUM(r3.weight*s) as s2
+RETURN p, s2
+ORDER BY s2 DESC
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name = "Materialwissenschaft"
+WITH t,a, toFloat(count(p)) as cnt
+WITH 
+  CASE WHEN cnt>=10.0
+      THEN 1
+      ELSE (cnt/10.0)^(0.75)
+   END AS alpha
+RETURN alpha
+ORDER BY alpha DESC
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name = "Informatik"
+WITH t,a, SUM(r1.weight*r2.weight) as s
+CREATE (a)-[r3:EXPERT_ON]->(t) 
+SET r3.weight = s
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name = "Informatik"
+WITH COUNT(pub) as cnt
+WITH t,a, AVG(r1.weight*r2.weight)*ALPHA( as s
+CREATE (a)-[r3:EXPERT_ON]->(t) 
+SET r3.weight = s
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name = "Materialwissenschaft"
+WITH t,a, toFloat(count(p)) as cnt
+WITH t,a,
+  CASE WHEN cnt>=10.0
+      THEN 1
+      ELSE (cnt/10.0)^(0.75)
+   END AS alpha
+WITH t,a, AVG(r1.weight*r2.weight)*alpha as s
+CREATE (a)-[r3:EXPERT_ON]->(t) 
+SET r3.weight = s
+
+MATCH (w:Word) -[r] -(t:Topic)
+WITH t, count(w) as cnt
+SET t.word_count = cnt
+
+WITH ['distribut', 'algorithm'] as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH size(words) as inputCnt, count(DISTINCT w) as cnt, SUM(r1.weight) as s
+WHERE cnt = inputCnt
+WITH   s
+MATCH (t:Topic)-[r3:EXPERT_ON] - (p:Person)-[r8]-(d:Department)
+WITH p, SUM(r3.weight*s) as s2, d
+RETURN p.name, s2, d.name
+ORDER BY s2 DESC
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name IN ['Applied Biosciences', 'Architecture', 'Civil, Environmental and Geomatic Engineering']
+WITH t, a, AVG(r1.weight*r2.weight)*(9/toFloat(t.word_count))^(0.75) as s
+MATCH (t)-[r4]-(a)
+SET r4.score = s*r4.alpha
+
+TO FIND EXPERT ON DISTRIBUTED ALGORITHMS:
+
+WITH ['distribut', 'algorithm'] as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH t,  size(words) as inputCnt, count(DISTINCT w) as cnt, AVG(r1.weight) as s
+WHERE cnt = inputCnt
+WITH   t,s
+MATCH (t:Topic)-[r3:EXPERT_ON] - (p:Person)-[r8]-(d:Department)
+WITH p, SUM(r3.score*s) as s2, d
+RETURN p.name, s2, d.name
+
+WITH ['climat', 'chang']
+as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH t,  size(words) as inputCnt, count(DISTINCT w) as cnt, AVG(r1.weight) as s
+WHERE cnt = inputCnt
+WITH   t,s
+MATCH (t:Topic)-[r3:EXPERT_ON] - (p:Person)-[r8]-(d:Department)
+WITH p, SUM(r3.score*s) as s2, d
+RETURN p.name, s2, d.name
+ORDER BY s2 DESC
+
+EXPERT ON CLIMATE CHANGE RETURNING ORGANISATION
+
+WITH ['climat', 'chang']as words
+MATCH (w:Word)-[r1:IS_IN]-(t:Topic)
+WHERE w.name in words
+WITH t,  size(words) as inputCnt, count(DISTINCT w) as cnt, AVG(r1.weight) as s
+WHERE cnt = inputCnt
+WITH   t,s
+MATCH (t:Topic)-[r3:EXPERT_ON] - (p:Person)-[r8]-(o:Organisation)
+WITH p, SUM(r3.score_ipf*s) as s2, d
+RETURN p.name, s2, o.name
+ORDER BY s2 DESC
+Limit 5
+
+
+MATCH (p:Publication) - [r:PUBLISHED] - (a:Person)
+SET r.weight = 1-toFloat(duration.between(p.date, date("2020-01-01")).years)/toFloat(duration.between(date("1930-01-01"),date("2020-01-01")).years)
+
+
+
+MATCH (t:Topic) - [r1] - (p:Publication) - [r2:PUBLISHED] - (a:Person)-[r3]- (d:Department)
+WHERE d.name IN ['Applied Biosciences', 'Architecture', 'Civil, Environmental and Geomatic Engineering']
+WITH t, a, AVG(r1.weight*r2.weight)*(9/toFloat(t.word_count))^(0.75) as s
+MATCH (t)-[r4]-(a)
+SET r4.score_ipf = s*r4.alpha
