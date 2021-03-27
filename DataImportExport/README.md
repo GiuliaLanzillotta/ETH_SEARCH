@@ -1,7 +1,7 @@
 `DataImportExport` includes the initial and final steps in the pipeline.
 
-* `DataImportFinal.ipynb` contains all the necessary code to open the research collection files, extract relevant information, apply preprocessing and preparing the data for the export into the graph. It also contains the Neo4j import queries. Running this notebook extracts two csv files: `graph_data_final.csv` which contains metadata to be imported to the Neo4j database and `abstracts_eng.csv` which is used for topic modelling. 
+* `Data_import_final.ipynb` contains all the necessary code to open the research collection files, extract relevant information, apply preprocessing and preparing the data for the export into the graph. It also contains the Neo4j import queries. Running this notebook extracts two csv files: `graph_data_final.csv` which contains metadata to be imported to the Neo4j database and `abstracts_eng.csv` which is used for topic modelling. 
 
 * `Topics_import.ipynb` covers the necessary steps to enrich the graph with the trained topic models. Note that to succesfully use this notebook you need to first run the `FinalModel/Streaming LDA` notebook and store the models on disk.
 
-* `Data import.ipynb`, `Data exploration.ipynb` exploratory notebooks. 
+* `Data exploration.ipynb` is an exploratory notebook. 
