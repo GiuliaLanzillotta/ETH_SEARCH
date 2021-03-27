@@ -14,4 +14,4 @@ The code is divided between the `DataImportExport`, `Experiments` and `FinalMode
 
 
 ## Usage 
-Following the workflow presented in the image above, first run `DataImportExport/DataImportFinal.ipynb` to extract the publications metadata. In this notebook there are further instructions on how to import this metadata, including authors, publications, departments and organisations, into Neo4j. This notebook also extracts the raw data file used to fit the topic model.  
+Following the workflow presented in the image above, first run `DataImportExport/Data_import_final.ipynb` to extract the publications metadata. In this notebook there are further instructions on how to import this metadata, including authors, publications, departments and organisations, into Neo4j. This notebook also extracts the raw data file used to fit the topic model.  
