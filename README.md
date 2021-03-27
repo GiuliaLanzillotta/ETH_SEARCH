@@ -9,7 +9,7 @@ Here we implement the topic modelling core as shown in the figure below to impro
 ## Contents 
 The code is divided between the `DataImportExport`, `Experiments` and `FinalModel` directories. 
 * `DataImportExport` includes the initial and final steps in the pipeline: cleaning + importing input data into the graph, and loading the inferred topics into the graph. For more details on the individual notebooks see the `DataImportExport/README`.
-* `Experiments` contains experiments with models that were __not__ that incorporated in the final pipeline, including baselines as well as more complex models. See the project report for further details and motivation behind these models.
+* `Experiments` contains experiments with models that were __not__ incorporated in the final pipeline, including baselines as well as more complex models. See the project report for further details and motivation behind these models.
 * `FinalModel`
 
 
