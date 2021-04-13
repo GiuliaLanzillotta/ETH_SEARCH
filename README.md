@@ -16,4 +16,8 @@ The code is divided between the `DataImportExport`, `Experiments` and `FinalMode
 ## Usage 
 Following the workflow presented in the image above, first run `DataImportExport/Data_import_final.ipynb` to extract the publications metadata. In this notebook there are further instructions on how to import this metadata, including authors, publications, departments and organisations, into Neo4j. This notebook also extracts the raw data file used to fit the topic model.  
 
-Next, head to `FinalModel/Streaming_LDA.ipynb` to train the final model. This notebook trains two separate models (differentiated by their pre-processing) for the graph and the embedding space. 
+Next, head to `FinalModel/Streaming_LDA.ipynb` to train the final model. This notebook trains two separate models (differentiated by their pre-processing) for the graph and the embedding space. These are then fed into the respective components of the query system. 
+
+On the graph side, refer to the notebook `DataImportExport/Topics_import.ipynb`. Assuming trained streaming LDA models, it extracts the files necessary to enrich the Neo4j graph with topics. It also includes the required import queries. To further enrich the search capabilities with expert scores (see report for details), head to `FinalModel/Python_Neo4j_queries.ipynb`.
+
+Embeddings...
