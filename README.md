@@ -18,6 +18,6 @@ Following the workflow presented in the image above, first run `DataImportExport
 
 Next, head to `FinalModel/Streaming_LDA.ipynb` to train the final model. This notebook trains two separate models (differentiated by their pre-processing) for the graph and the embedding space. These are then fed into the respective components of the query system. 
 
-On the graph side, refer to the notebook `DataImportExport/Topics_import.ipynb`. Assuming trained streaming LDA models, it extracts the files necessary to enrich the Neo4j graph with topics. It also includes the required import queries. To further enrich the search capabilities with expert scores (see report for details), head to `FinalModel/Python_Neo4j_queries.ipynb`.
+On the graph side, refer to the notebook `DataImportExport/Topics_import.ipynb`. Assuming trained streaming LDA models, it extracts the files necessary to enrich the Neo4j graph with topics. It also includes the required import queries. To further enrich the search capabilities with expert scores (see report for details), head to `FinalModel/Python_Neo4j_queries.ipynb`. Example queries can be found in `FinalModel/Graph_Queries.txt`.
 
 Embeddings...
