@@ -4,4 +4,4 @@
 
 * `Topics_import.ipynb` covers the steps to enrich the graph with the trained topic models. It exports the files `abstract+topic.csv`, `topics.csv` and `words.csv` for this purpose and provides the necessary import queries. Note that to succesfully use this notebook you need to first run the `FinalModel/Streaming LDA` notebook and store the models `LDA1batch1.bin`, `LDA1batch2.bin`, `LDA1batch3.bin` and `LDA1batch4.bin` on disk.
 
-* `Data exploration.ipynb` is an exploratory notebook. 
+* `Data_exploration.ipynb` is an exploratory notebook. 
