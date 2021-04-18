@@ -10,7 +10,7 @@ Here we implement the topic modelling core as shown in the figure below to impro
 The code is divided between the `DataImportExport`, `Experiments` and `FinalModel` directories. 
 * `DataImportExport` includes the initial and final steps in the pipeline: cleaning + importing input data into the graph, and loading the inferred topics into the graph. For more details on the individual notebooks see the `DataImportExport/README`.
 * `Experiments` contains experiments with models that were __not__ incorporated in the final pipeline, including baselines as well as more complex models. See the project report for further details and motivation behind these models.
-* `FinalModel`
+* `FinalModel` provides the code associated with the final topic model and the query components.
 
 
 ## Usage 
@@ -20,4 +20,4 @@ Next, head to `FinalModel/Streaming_LDA.ipynb` to train the final model. This no
 
 On the graph side, refer to the notebook `DataImportExport/Topics_import.ipynb`. Assuming trained streaming LDA models, it extracts the files necessary to enrich the Neo4j graph with topics. It also includes the required import queries. To further enrich the search capabilities with expert scores (see report for details), head to `FinalModel/Python_Neo4j_queries.ipynb`. Example queries can be found in `FinalModel/Graph_Queries.txt`.
 
-Embeddings...
+As for the embeddings, this pipeline is found in `FinalModel/Embeddings_LDA.ipynb`. Assuming trained streaming LDA models, it creates the embedding representations and provides example queries & visualisations.
