@@ -9,4 +9,4 @@ python3 PATH_TO_SCRIPT/pprcs_abstracts.py -I abstracts_eng.csv -L PATH_TO_DATA/ 
 
 * `Python_Neo4j_queries.ipynb` explores the mapping from ETH Search query input to Neo4j queries and, more importantly, provides the necessary Cypher code to enrich the graph with expert scores.
 * Example queries can be found in `Graph_Queries.txt`
-* `Embedding LDA.ipynb` provides the pipeline for the embedding representations of the topics, documents, authors and queries as well as visualisations of their similarity in the embedding space.
+* `Embedding_LDA.ipynb` provides the pipeline for the embedding representations of the topics, documents, authors and queries as well as visualisations of their similarity in the embedding space. It takes `collection_cleaned_fullwords.p` and the streaming LDA models as input.
